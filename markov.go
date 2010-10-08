@@ -12,9 +12,9 @@ import (
 
 type MarkTab map[string]map[string]map[int]string
 
-func populate(t MarkTab, fname string) (os.Error, MarkTab) {
+func populate(t *MarkTab, fname string) (os.Error, MarkTab) {
     f, err := os.Open(fname, os.O_RDONLY, 0)
-    ret := t
+    ret := *t
     if err != nil {
         return err, ret
     }
@@ -61,7 +61,7 @@ func populate(t MarkTab, fname string) (os.Error, MarkTab) {
     return nil, ret
 }
 
-func chainmark(t MarkTab, s string, l int) (os.Error, string) {
+func chainmark(t *MarkTab, s string, l int) (os.Error, string) {
     rand.Seed(time.Nanoseconds() % 1e9)
     w1, w2, w := " ", " ", " "
     strtab := strings.Split(s, " ", -1)
@@ -72,15 +72,17 @@ func chainmark(t MarkTab, s string, l int) (os.Error, string) {
         }
     }
     for i:=0; i < l; i++ {
-        if len(t[w1]) == 0 {
+        if len((*t)[w1]) == 0 {
             continue    //first iteration, w2 needs to get filled
         }
-        if len(t[w1][w2])  == 0 {
+        if len((*t)[w1][w2])  == 0 {
+            //try and find an other random number that has
+            //elements in the array
             i := 0
-            max := rand.Intn(len(t[w1]))
-            for w2, _ = range t[w1] {
+            max := rand.Intn(len((*t)[w1]))
+            for w2, _ = range (*t)[w1] {
                 w2 = strings.ToLower(w2)
-                if i == max && len(t[w1][w2]) != 0 {
+                if i == max && len((*t)[w1][w2]) != 0 {
                     break
                 }
                 i++
@@ -89,8 +91,8 @@ func chainmark(t MarkTab, s string, l int) (os.Error, string) {
         newtab := make([]string, len(strtab)+1)
         copy(newtab, strtab)
         strtab = newtab
-        rnd := rand.Intn(len(t[w1][w2]) )
-        w = strings.ToLower(t[w1][w2][rnd])
+        rnd := rand.Intn(len((*t)[w1][w2]) )
+        w = strings.ToLower((*t)[w1][w2][rnd])
         strtab[len(strtab)-1] = w
         w1, w2= w2, w
     }
@@ -102,10 +104,10 @@ func main () {
     startstring := flag.String("s", "-s 'start string'", "string to start with (defaults to space)")
     flag.Parse()
     mtab := make(MarkTab)
-    err, tab := populate(mtab, *fname)
+    err, tab := populate(&mtab, *fname)
     if err != nil {
         fmt.Printf("%s\n", err)
     }
-    err, str := chainmark(tab, *startstring, 50)
+    err, str := chainmark(&tab, *startstring, 50)
     fmt.Printf("%s\n", str)
 }
