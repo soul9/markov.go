@@ -50,6 +50,7 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
     }
     commit := 0
     err = db.Exec("BEGIN")
+    defer db.Exec("COMMIT")
     for line, err := r.ReadString('\n'); err != os.EOF && err == nil; line, err = r.ReadString('\n') {
          if commit % 1000 == 0{
              err = db.Exec("BEGIN")
@@ -81,7 +82,6 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
              db.Exec("COMMIT")
          }
     }
-    db.Exec("COMMIT")
     st.Finalize()
     return nil
 }
@@ -109,11 +109,11 @@ func chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.E
         empty := true
         tmpt := make(map[int]string)
         if w[0] != " " {
-            qstr = qstr + " idx" + strconv.Itoa(maxindex-idxno) + "=?"
+            qstr = qstr + " idx" + strconv.Itoa(maxindex-idxno+1) + "=?"
             empty = false
             tmpt[len(tmpt)] = w[0]
         }
-        for i:=1; i<=idxno; i++ {
+        for i:=2; i<=idxno; i++ {
             if w[i-1] != " " {
                 if ! empty {
                     qstr = qstr + " AND"
@@ -124,13 +124,13 @@ func chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.E
             }
         }
         qstr = qstr + ";"
-        st, err := db.Prepare("SELECT count(word) "+qstr)
         tmps := make([]interface{}, len(tmpt))
         for i:=0; i<=len(tmpt)-1; i++ {
-            tmps[i] = tmpt[i]
+            tmps[ i] = tmpt[i]
         }
+        st, err := db.Prepare("SELECT count(word) "+qstr)
         if err != nil {
-            return os.NewError("Couldn't prepare statement: SELECT count(*) "+qstr), strings.Join(retab, " ")
+            return os.NewError(fmt.Sprintf("Couldn't prepare statement: SELECT count(*) %s: %s", qstr, err.String())), strings.Join(retab, " ")
         }
         err = st.Exec(tmps...)
         if err != nil {
