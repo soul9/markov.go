@@ -44,22 +44,27 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
     for i:=0; i<len(w); i++ {
         w[i] = " "
     }
+    st, err := db.Prepare(qstr)
+    if err != nil {
+        return os.NewError("Problem with sql statement: " + qstr + "\n" + err.String())
+    }
+    commit := 0
+    err = db.Exec("BEGIN")
     for line, err := r.ReadString('\n'); err != os.EOF && err == nil; line, err = r.ReadString('\n') {
+         if commit % 1000 == 0{
+             err = db.Exec("BEGIN")
+         }
+         commit++
          for _, w[len(w)-1] = range strings.Split(line, " ", -1) {
              if w[len(w)-1]  == "" {
                  continue
              }
              w[len(w)-1]  = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string) ))
-             st, err := db.Prepare(qstr)
-             if err != nil {
-                 return os.NewError("Problem with sql statement: " + qstr + "\n" + err.String())
-             }
              err = st.Exec(w...)
              st.Next()
              if err != nil {
                  return os.NewError("Couldn't execute sql statement: " + qstr + "\n(error was: " + err.String())
              }
-             st.Finalize()
              for i := 0; i<len(w)-1; i++ {
                  w[i] = w[i+1]
              }
@@ -72,7 +77,12 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
                  }
              }
          }
+         if commit % 1000 == 0 {
+             db.Exec("COMMIT")
+         }
     }
+    db.Exec("COMMIT")
+    st.Finalize()
     return nil
 }
 
@@ -181,7 +191,7 @@ func main () {
         os.Exit(1)
     }
     defer db.Close()
-/*
+
     err = db.Exec("DROP TABLE IF EXISTS " + *dbname + ";")
     if err != nil {
         println(err);
@@ -197,7 +207,7 @@ func main () {
         fmt.Printf("%s\n", err)
         os.Exit(1)
     }
-*/
+
     err, str := chainmark(db, *dbname, *startstring, *retlen, *idxlen)
     if err != nil {
         fmt.Printf("Error in chainmark: %s\n", err)
