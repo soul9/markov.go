@@ -24,7 +24,7 @@ type MarkStruct struct {
 type MarkTab map[string]map[string]map[int]string
 
 func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno int) os.Error{
-    f, err := os.Open(fname, os.O_RDONLY, 0)
+    f, err := os.Open(fname)
     if err != nil {
         return err
     }
@@ -56,7 +56,7 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
              err = db.Exec("BEGIN")
          }
          commit++
-         for _, w[len(w)-1] = range strings.Split(line, " ", -1) {
+         for _, w[len(w)-1] = range strings.Split(line, " ") {
              if w[len(w)-1]  == "" {
                  continue
              }
@@ -88,7 +88,7 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
 
 func chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.Error, string) {
     rand.Seed(time.Nanoseconds())
-    splitab := strings.Split(strings.ToLower(s), " ", -1)
+    splitab := strings.Split(strings.ToLower(s), " ")
     retab := make([]string, l+len(splitab))
     copy(retab, splitab)
     w:=make([]string, idxno)
@@ -179,6 +179,7 @@ func main () {
     idxlen := flag.Int("i", 7, "number of indexes to use")
     smart := flag.Bool("m", false, "Smart mode: try and analyze test to detect sentences")
     retlen := flag.Int("l", 20, "How many words to chain")
+    pop := flag.Bool("p", false, "Whether to populate the database or not")
     flag.Parse()
     fmt.Println(*fname, *startstring, *dbname, *dbfname, *idxlen, *smart, *retlen)
     if *idxlen > 10 {
@@ -191,23 +192,23 @@ func main () {
         os.Exit(1)
     }
     defer db.Close()
-
-    err = db.Exec("DROP TABLE IF EXISTS " + *dbname + ";")
-    if err != nil {
-        println(err);
+    if *pop {
+        err = db.Exec("DROP TABLE IF EXISTS " + *dbname + ";")
+        if err != nil {
+            println(err);
+        }
+    
+        err = db.Exec("CREATE TABLE " + *dbname + " "+ MarkSqlType + ";")
+        if err != nil {
+            fmt.Printf("Can't create table: %s\n%s", *dbname, err)
+            os.Exit(1)
+        }
+        err = populate(db, *dbname, *fname, *smart, *idxlen)
+        if err != nil {
+            fmt.Printf("%s\n", err)
+            os.Exit(1)
+        }
     }
-
-    err = db.Exec("CREATE TABLE " + *dbname + " "+ MarkSqlType + ";")
-    if err != nil {
-        fmt.Printf("Can't create table: %s\n%s", *dbname, err)
-        os.Exit(1)
-    }
-    err = populate(db, *dbname, *fname, *smart, *idxlen)
-    if err != nil {
-        fmt.Printf("%s\n", err)
-        os.Exit(1)
-    }
-
     err, str := chainmark(db, *dbname, *startstring, *retlen, *idxlen)
     if err != nil {
         fmt.Printf("Error in chainmark: %s\n", err)
