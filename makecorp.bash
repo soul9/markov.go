@@ -37,11 +37,20 @@ for nick in eiro mc khatar; do
 done
 
 for nick in soul9 KBme; do
-  mkinfernocorp $nick '#soul9' $infernobasedir $corpdir/soul9corp
-  mkznccorp $nick '#soul9' $zncbasedir $corpdir/soul9corp
+  for chan in "#biblibre" "#soul9"; do
+    mkinfernocorp $nick $chan $infernobasedir $corpdir/soul9corp
+    mkznccorp $nick $chan $zncbasedir $corpdir/soul9corp
+  done
 done
 
-for nick in clrh alex_a francharb kivutar; do
+for nick in kivutar Kivutar kivutarrr Kivutarrr; do
+  for chan in "#biblibre" "#soul9"
+    mkinfernocorp $nick $chan $infernobasedir $corpdir/kivutarcorp
+    mkznccorp $nick $chan $zncbasedir $corpdir/kivutarcorp
+  done
+done
+
+for nick in clrh alex_a francharb nahuel; do
   mkinfernocorp $nick '#soul9' $infernobasedir $corpdir/${nick}corp
   mkznccorp $nick '#soul9' $zncbasedir $corpdir/${nick}corp
 done
