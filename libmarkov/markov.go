@@ -18,13 +18,7 @@ const (
     commitlen = 5000
 )
 
-func Populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno int) os.Error{
-    f, err := os.Open(fname)
-    if err != nil {
-        return err
-    }
-    defer f.Close()
-    r := bufio.NewReader(f)
+func Populate(db *sqlite.Conn, dbname string, toadd *bufio.Reader, smart bool, idxno int) os.Error{
     w := make([]interface{}, maxindex+1)
     qstr := "INSERT INTO " + dbname + " (idx1"
     // idx2,idx3,idx4,idx5,idx6,idx7,idx8,idx9,idx10, word) values(?,?,?,?,?,?,?,?,?,?,?);"
@@ -46,7 +40,7 @@ func Populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
     commit := 0
     err = db.Exec("BEGIN")
     defer db.Exec("COMMIT")
-    for line, err := r.ReadString('\n'); err != os.EOF && err == nil; line, err = r.ReadString('\n') {
+    for line, err := toadd.ReadString('\n'); err != os.EOF && err == nil; line, err = toadd.ReadString('\n') {
          if commit % commitlen == 0{
              err = db.Exec("BEGIN")
          }
@@ -81,7 +75,27 @@ func Populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
     return nil
 }
 
+func PopulateFromFile(db *sqlite.Conn, dbname string, fname string, smart bool, idxno int) os.Error{
+    if idxno > maxindex {
+        return os.NewError("Given index count is larger than the maximum allowable index")
+    }
+    f, err := os.Open(fname)
+    if err != nil {
+        return err
+    }
+    defer f.Close()
+    r := bufio.NewReader(f)
+    err = Populate(db, dbname, r, smart, idxno)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
 func Chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.Error, string) {
+    if idxno > maxindex {
+        return os.NewError("Given index count is larger than the maximum allowable index"), ""
+    }
     rand.Seed(time.Nanoseconds())
     splitab := strings.Split(strings.ToLower(s), " ")
     retab := make([]string, l+len(splitab))

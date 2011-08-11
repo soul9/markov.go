@@ -7,7 +7,7 @@ mkinfernocorp() {
   fi
   cd $3 || ( echo "No such directory: $3" && return )
   touch $4 || ( echo "Can't create $4" && return )
-  egrep '^(\+|\-) [0-9][0-9]:[0-9][0-9] *'$1':' "${2}.log" |sed -E 's,^(\+|\-) [0-9][0-9]:[0-9][0-9] *'$1': ,,g'  >> $4
+  egrep -v '^#' "${2}.log" |egrep "^(\+|\-) [0-9][0-9]:[0-9][0-9] *$1:" |sed -E 's,^(\+|\-) [0-9][0-9]:[0-9][0-9] *'$1': ,,g'  >> $4
 }
 
 mkznccorp() {
@@ -44,13 +44,19 @@ for nick in soul9 KBme; do
 done
 
 for nick in kivutar Kivutar kivutarrr Kivutarrr; do
-  for chan in "#biblibre" "#soul9"
+  for chan in "#biblibre" "#soul9"; do
     mkinfernocorp $nick $chan $infernobasedir $corpdir/kivutarcorp
     mkznccorp $nick $chan $zncbasedir $corpdir/kivutarcorp
   done
 done
 
-for nick in clrh alex_a francharb nahuel; do
+nick=nahuel
+for chan in "#biblibre" "#soul9"; do
+  mkinfernocorp $nick $chan $infernobasedir $corpdir/${nick}corp
+  mkznccorp $nick $chan $zncbasedir $corpdir/${nick}corp
+done
+
+for nick in clrh alex_a francharb; do
   mkinfernocorp $nick '#soul9' $infernobasedir $corpdir/${nick}corp
   mkznccorp $nick '#soul9' $zncbasedir $corpdir/${nick}corp
 done

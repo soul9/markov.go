@@ -40,7 +40,7 @@ func main () {
             fmt.Printf("Can't create table: %s\n%s", *dbname, err)
             os.Exit(1)
         }
-        err = markov.Populate(db, *dbname, *fname, *smart, *idxlen)
+        err = markov.PopulateFromFile(db, *dbname, *fname, *smart, *idxlen)
         if err != nil {
             fmt.Printf("%s\n", err)
             os.Exit(1)
