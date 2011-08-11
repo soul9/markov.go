@@ -45,13 +45,13 @@ func main () {
             fmt.Printf("Can't create table: %s\n%s", *dbname, err)
             os.Exit(1)
         }
-        err = markov.populate(db, *dbname, *fname, *smart, *idxlen)
+        err = markov.Populate(db, *dbname, *fname, *smart, *idxlen)
         if err != nil {
             fmt.Printf("%s\n", err)
             os.Exit(1)
         }
     }
-    err, str := markov.chainmark(db, *dbname, *startstring, *retlen, *idxlen)
+    err, str := markov.Chainmark(db, *dbname, *startstring, *retlen, *idxlen)
     if err != nil {
         fmt.Printf("Error in chainmark: %s\n", err)
     }

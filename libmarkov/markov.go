@@ -18,7 +18,7 @@ const (
     commitlen = 5000
 )
 
-func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno int) os.Error{
+func Populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno int) os.Error{
     f, err := os.Open(fname)
     if err != nil {
         return err
@@ -81,7 +81,7 @@ func populate(db *sqlite.Conn, dbname string, fname string, smart bool, idxno in
     return nil
 }
 
-func chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.Error, string) {
+func Chainmark(db *sqlite.Conn, dbname string, s string, l int, idxno int) (os.Error, string) {
     rand.Seed(time.Nanoseconds())
     splitab := strings.Split(strings.ToLower(s), " ")
     retab := make([]string, l+len(splitab))
