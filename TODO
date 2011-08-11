@@ -1,6 +1,2 @@
- * implement writing to and reading from a database for large datasets
- * more than 2 prefixed (when database is supported)
- * fix pointer errors
- * use a map[{w1,w2}] type
  * punctuation
   * use regexps where it makes sense
