@@ -4,12 +4,7 @@ import (
     "fmt"
     "os"
     "flag"
-    "bufio"
-    "strings"
-    "rand"
-    "time"
     sqlite "gosqlite.googlecode.com/hg/sqlite"
-    "strconv"
     markov "github.com/soul9/markov.go/libmarkov"
 )
 
@@ -40,7 +35,7 @@ func main () {
             println(err);
         }
     
-        err = db.Exec("CREATE TABLE " + *dbname + " "+ MarkSqlType + ";")
+        err = db.Exec("CREATE TABLE " + *dbname + " "+ markov.MarkSqlType + ";")
         if err != nil {
             fmt.Printf("Can't create table: %s\n%s", *dbname, err)
             os.Exit(1)
