@@ -157,6 +157,9 @@ func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error
 }
 
 func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, string) {
+	tidyret := func(s []string) string {
+		return strings.TrimSpace(strings.Join(s, " "))
+	}
 	if idxno > Maxindex {
 		return errors.New("Given index count is larger than the maximum allowable index"), ""
 	}
@@ -206,34 +209,34 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		}
 		st, err := db.Prepare(fmt.Sprintf("SELECT count(word) %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT count(word) %s: %s", qstr, err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT count(word) %s: %s", qstr, err)), tidyret(retab)
 		}
 		res, err := st.Query(tmps...)
 		if err != nil {
-			return errors.New(fmt.Sprintf("exec statement: SELECT count(word) %s\n%s", qstr, err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("exec statement: SELECT count(word) %s\n%s", qstr, err)), tidyret(retab)
 		}
 		var cnt int
 		if res.Next() {
 			res.Scan(&cnt)
 		}
 		if cnt == 0 {
-			return errors.New(fmt.Sprintf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)), tidyret(retab)
 		}
 		st.Close()
 		st, err = db.Prepare(fmt.Sprintf("SELECT word %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT word %s: %s", qstr, err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT word %s: %s", qstr, err)), tidyret(retab)
 		}
 		res, err = st.Query(tmps...)
 		if err != nil {
-			return errors.New(fmt.Sprintf("exec statement: SELECT word %s: %s", qstr, err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("exec statement: SELECT word %s: %s", qstr, err)), tidyret(retab)
 		}
 		rnd := rand.Intn(cnt)
 		var c string
 		res.Next()
 		for i := 0; i < rnd-1; i++ {
 			if !res.Next() {
-				return res.Err(), strings.Join(retab, " ")
+				return res.Err(), tidyret(retab)
 			}
 		}
 		for i := 0; i < idxno-1; i++ {
@@ -244,5 +247,5 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		w[len(w)-1] = retab[i]
 		st.Close()
 	}
-	return nil, strings.Join(retab, " ")
+	return nil, tidyret(retab)
 }
