@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fname := flag.String("c", "./eiro.log", "Corpus file path")
+	fname := flag.String("c", "none", "Corpus file path")
 	startstring := flag.String("s", " ", "string to start with (defaults to space)")
 	dbname := flag.String("n", "markov", "table name")
 	dbfname := flag.String("d", "/tmp/testmarkov.sqlite3", "database file name")
@@ -20,8 +20,8 @@ func main() {
 	pop := flag.Bool("p", false, "Whether to populate the database or not")
 	flag.Parse()
 	fmt.Println(*fname, *startstring, *dbname, *dbfname, *idxlen, *smart, *retlen)
-	if *idxlen > 10 {
-		fmt.Println("Too many indexes, maximum is 10")
+	if *idxlen > markov.Maxindex {
+		fmt.Printf("Too many indexes, maximum is %d\n", markov.Maxindex)
 		os.Exit(1)
 	}
 	db, err := sql.Open("sqlite3", *dbfname)
