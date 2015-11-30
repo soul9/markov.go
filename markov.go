@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
@@ -24,30 +23,19 @@ func main() {
 		fmt.Printf("Too many indexes, maximum is %d\n", markov.Maxindex)
 		os.Exit(1)
 	}
-	db, err := sql.Open("sqlite3", *dbfname)
+	m, err := markov.NewMarkov(*dbfname, *dbname)
 	if err != nil {
 		fmt.Println("Can't open database file.")
 		os.Exit(1)
 	}
-	defer db.Close()
 	if *pop {
-		_, err = db.Exec("DROP TABLE IF EXISTS " + *dbname + ";")
-		if err != nil {
-			println(err)
-		}
-
-		_, err = db.Exec("CREATE TABLE " + *dbname + " " + markov.MarkSqlType + ";")
-		if err != nil {
-			fmt.Printf("Can't create table: %s\n%s", *dbname, err)
-			os.Exit(1)
-		}
-		err = markov.PopulateFromFile(db, *dbname, *fname, *smart)
+		err = m.PopulateFromFile(*fname, *smart)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
 		}
 	}
-	err, str := markov.Chainmark(db, *dbname, *startstring, *retlen, *idxlen)
+	err, str := m.Chainmark(*startstring, *retlen, *idxlen)
 	if err != nil {
 		fmt.Printf("Error in chainmark: %s\n", err)
 	}
