@@ -111,7 +111,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 		}
 		commit++
 		for _, w[len(w)-1] = range strings.Split(line, " ") {
-			if w[len(w)-1] == "" {
+			if w[len(w)-1] == "" || w[len(w)-1] == " " {
 				continue
 			}
 			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
@@ -164,7 +164,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		return errors.New("Too many words requested"), ""
 	}
 	rand.Seed(time.Now().UnixNano())
-	splitab := strings.Split(strings.ToLower(s), " ")
+	splitab := strings.Split(strings.TrimSpace(strings.ToLower(s)), " ")
 	retab := make([]string, l+len(splitab))
 	copy(retab, splitab)
 	w := make([]string, idxno)
@@ -189,13 +189,13 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 			empty = false
 			tmpt[len(tmpt)] = w[0]
 		}
-		for i := 2; i <= idxno; i++ {
-			if w[i-1] != " " {
+		for i := 1; i < idxno; i++ {
+			if w[i] != " " {
 				if !empty {
 					qstr = fmt.Sprintf("%s AND", qstr)
 				}
-				qstr = fmt.Sprintf("%s idx%d=?", qstr, Maxindex-idxno+i)
-				tmpt[len(tmpt)] = w[i-1]
+				qstr = fmt.Sprintf("%s idx%d=?", qstr, Maxindex-idxno+i+1)
+				tmpt[len(tmpt)] = w[i]
 				empty = false
 			}
 		}
@@ -217,7 +217,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 			res.Scan(&cnt)
 		}
 		if cnt == 0 {
-			return errors.New(fmt.Sprintf("Couldn't continue with this word combination:%v, %v, sql: select * %s", w, tmps, qstr)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)), strings.Join(retab, " ")
 		}
 		st.Close()
 		st, err = db.Prepare(fmt.Sprintf("SELECT word %s", qstr))
