@@ -18,6 +18,7 @@ const MarkSqlType = "(word TEXT, idx1 TEXT, idx2 TEXT, idx3 TEXT, idx4 TEXT, idx
 //because of sql i need to do a const dammit
 const (
 	Maxindex  = 10
+	MaxWords  = 100
 	commitlen = 5000
 )
 
@@ -158,6 +159,9 @@ func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error
 func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, string) {
 	if idxno > Maxindex {
 		return errors.New("Given index count is larger than the maximum allowable index"), ""
+	}
+	if l > MaxWords {
+		return errors.New("Too many words requested"), ""
 	}
 	rand.Seed(time.Now().UnixNano())
 	splitab := strings.Split(strings.ToLower(s), " ")
