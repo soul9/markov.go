@@ -73,7 +73,10 @@ func (m *Markov) PopulateFromFile(fname string, smart bool) error {
 }
 
 func (m *Markov) Chainmark(s string, l int, idxno int) (error, string) {
-	return Chainmark(m.db, m.dbname, s, l, idxno)
+	m.Open()
+	defer m.Close()
+	e, s := Chainmark(m.db, m.dbname, s, l, idxno)
+	return e, s
 }
 
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
