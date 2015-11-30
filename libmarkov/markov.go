@@ -9,7 +9,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -18,22 +17,72 @@ const MarkSqlType = "(word TEXT, idx1 TEXT, idx2 TEXT, idx3 TEXT, idx4 TEXT, idx
 
 //because of sql i need to do a const dammit
 const (
-	maxindex  = 10
+	Maxindex  = 10
 	commitlen = 5000
 )
 
+type Markov struct {
+	db     *sql.DB
+	dbname string
+	dbfile string
+}
+
+func NewMarkov(dbfile, dbname string) (*Markov, error) {
+	m := &Markov{}
+	m.dbname = dbname
+	m.dbfile = dbfile
+	return m, m.Open()
+}
+
+func (m *Markov) Open() error {
+	var err error
+	m.db, err = sql.Open("sqlite3", m.dbfile)
+	return err
+}
+
+func (m *Markov) Close() error {
+	e := m.db.Close()
+	m.db = nil
+	return e
+}
+
+func (m *Markov) Populate(toadd *bufio.Reader, smart bool) error {
+	m.Open()
+	defer m.Close()
+	e := Populate(m.db, m.dbname, toadd, smart)
+	return e
+}
+
+func (m *Markov) AddString(toadd string, smart bool) error {
+	m.Open()
+	defer m.Close()
+	e := AddString(m.db, m.dbname, toadd, smart)
+	return e
+}
+
+func (m *Markov) PopulateFromFile(fname string, smart bool) error {
+	m.Open()
+	defer m.Close()
+	e := PopulateFromFile(m.db, m.dbname, fname, smart)
+	return e
+}
+
+func (m *Markov) Chainmark(s string, l int, idxno int) (error, string) {
+	return Chainmark(m.db, m.dbname, s, l, idxno)
+}
+
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
-	w := make([]interface{}, maxindex+1)
-	qstr := "INSERT INTO " + dbname + " (idx1"
+	w := make([]interface{}, Maxindex+1)
+	qstr := fmt.Sprintf("INSERT INTO %s (idx1", dbname)
 	// idx2,idx3,idx4,idx5,idx6,idx7,idx8,idx9,idx10, word) values(?,?,?,?,?,?,?,?,?,?,?);"
-	for i := 2; i <= maxindex; i++ {
-		qstr = qstr + ", idx" + strconv.Itoa(i)
+	for i := 2; i <= Maxindex; i++ {
+		qstr = fmt.Sprintf("%s, idx%d", qstr, i)
 	}
-	qstr = qstr + ", word) values(?"
-	for i := 1; i <= maxindex; i++ {
-		qstr = qstr + ", ?"
+	qstr = fmt.Sprintf("%s, word) values(?", qstr)
+	for i := 1; i <= Maxindex; i++ {
+		qstr = fmt.Sprintf("%s, ?", qstr)
 	}
-	qstr = qstr + ");"
+	qstr = fmt.Sprintf("%s);", qstr)
 	for i := 0; i < len(w); i++ {
 		w[i] = " "
 	}
@@ -67,7 +116,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			if smart {
 				//Makes the algorithm a little bit "smarter". This makes it "see" phrases
 				if len(w[len(w)-1].(string)) != 0 && (w[len(w)-1].(string)[:1] == "." || w[len(w)-1].(string)[:1] == "!" || w[len(w)-1].(string)[:1] == "?") {
-					for i := 0; i < maxindex; i++ {
+					for i := 0; i < Maxindex; i++ {
 						w[i] = " "
 					}
 				}
@@ -81,10 +130,13 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	return nil
 }
 
+func AddString(db *sql.DB, dbname string, toadd string, smart bool) error {
+	r := bufio.NewReader(strings.NewReader(toadd))
+	err := Populate(db, dbname, r, smart)
+	return err
+}
+
 func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error {
-	if idxno > maxindex {
-		return errors.New("Given index count is larger than the maximum allowable index")
-	}
 	f, err := os.Open(fname)
 	if err != nil {
 		return err
@@ -92,14 +144,11 @@ func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error
 	defer f.Close()
 	r := bufio.NewReader(f)
 	err = Populate(db, dbname, r, smart)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, string) {
-	if idxno > maxindex {
+	if idxno > Maxindex {
 		return errors.New("Given index count is larger than the maximum allowable index"), ""
 	}
 	rand.Seed(time.Now().UnixNano())
@@ -120,32 +169,32 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		copy(retab, splitab)
 	}
 	for i := len(splitab); i < l+len(splitab); i++ {
-		qstr := "from " + dbname + " WHERE"
+		qstr := fmt.Sprintf("from %s WHERE", dbname)
 		empty := true
 		tmpt := make(map[int]string)
 		if w[0] != " " {
-			qstr = qstr + " idx" + strconv.Itoa(maxindex-idxno+1) + "=?"
+			qstr = fmt.Sprintf("%s idx%d=?", qstr, Maxindex-idxno+1)
 			empty = false
 			tmpt[len(tmpt)] = w[0]
 		}
 		for i := 2; i <= idxno; i++ {
 			if w[i-1] != " " {
 				if !empty {
-					qstr = qstr + " AND"
+					qstr = fmt.Sprintf("%s AND", qstr)
 				}
-				qstr = qstr + " idx" + strconv.Itoa(maxindex-idxno+i) + "=?"
+				qstr = fmt.Sprintf("%s idx%d=?", qstr, Maxindex-idxno+i)
 				tmpt[len(tmpt)] = w[i-1]
 				empty = false
 			}
 		}
-		qstr = qstr + ";"
+		qstr = fmt.Sprintf("%s;", qstr)
 		tmps := make([]interface{}, len(tmpt))
 		for i := 0; i <= len(tmpt)-1; i++ {
 			tmps[i] = tmpt[i]
 		}
-		st, err := db.Prepare("SELECT count(word) " + qstr)
+		st, err := db.Prepare(fmt.Sprintf("SELECT count(word) %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT count(*) %s: %s", qstr, err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT count(word) %s: %s", qstr, err)), strings.Join(retab, " ")
 		}
 		res, err := st.Query(tmps...)
 		if err != nil {
@@ -159,13 +208,13 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 			return errors.New(fmt.Sprintf("Couldn't continue with this word combination:%v, %v, sql: select * %s", w, tmps, qstr)), strings.Join(retab, " ")
 		}
 		st.Close()
-		st, err = db.Prepare("SELECT word " + qstr)
+		st, err = db.Prepare(fmt.Sprintf("SELECT word %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT word %s", err)), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT word %s: %s", qstr, err)), strings.Join(retab, " ")
 		}
 		res, err = st.Query(tmps...)
 		if err != nil {
-			return errors.New("exec statement: SELECT count(*) " + qstr), strings.Join(retab, " ")
+			return errors.New(fmt.Sprintf("exec statement: SELECT word %s: %s", qstr, err)), strings.Join(retab, " ")
 		}
 		rnd := rand.Intn(cnt)
 		var c string
