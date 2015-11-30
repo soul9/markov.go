@@ -31,7 +31,12 @@ func NewMarkov(dbfile, dbname string) (*Markov, error) {
 	m := &Markov{}
 	m.dbname = dbname
 	m.dbfile = dbfile
-	return m, m.Open()
+	e := m.Open()
+	defer m.Close()
+	if e == nil {
+		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s;", m.dbname, MarkSqlType))
+	}
+	return m, e
 }
 
 func (m *Markov) Open() error {
