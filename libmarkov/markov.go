@@ -35,7 +35,7 @@ func NewMarkov(dbfile, dbname string) (*Markov, error) {
 	e := m.Open()
 	defer m.Close()
 	if e == nil {
-		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s;", m.dbname, MarkSqlType))
+		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' %s;", m.dbname, MarkSqlType))
 	}
 	return m, e
 }
@@ -82,7 +82,7 @@ func (m *Markov) Chainmark(s string, l int, idxno int) (error, string) {
 
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
 	w := make([]interface{}, Maxindex+1)
-	qstr := fmt.Sprintf("INSERT INTO %s (idx1", dbname)
+	qstr := fmt.Sprintf("INSERT INTO '%s' (idx1", dbname)
 	// idx2,idx3,idx4,idx5,idx6,idx7,idx8,idx9,idx10, word) values(?,?,?,?,?,?,?,?,?,?,?);"
 	for i := 2; i <= Maxindex; i++ {
 		qstr = fmt.Sprintf("%s, idx%d", qstr, i)
@@ -184,7 +184,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		copy(retab, splitab)
 	}
 	for i := len(splitab); i < l+len(splitab); i++ {
-		qstr := fmt.Sprintf("from %s WHERE", dbname)
+		qstr := fmt.Sprintf("from '%s' WHERE", dbname)
 		empty := true
 		tmpt := make(map[int]string)
 		if w[0] != " " {
@@ -204,7 +204,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		}
 		qstr = fmt.Sprintf("%s;", qstr)
 		tmps := make([]interface{}, len(tmpt))
-		for i := 0; i <= len(tmpt)-1; i++ {
+		for i := 0; i < len(tmpt); i++ {
 			tmps[i] = tmpt[i]
 		}
 		st, err := db.Prepare(fmt.Sprintf("SELECT count(word) %s", qstr))

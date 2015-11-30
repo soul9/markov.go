@@ -25,7 +25,7 @@ func main() {
 	}
 	m, err := markov.NewMarkov(*dbfname, *dbname)
 	if err != nil {
-		fmt.Println("Can't open database file.")
+		fmt.Println("Can't open database file:", err)
 		os.Exit(1)
 	}
 	if *pop {
