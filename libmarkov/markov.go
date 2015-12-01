@@ -99,6 +99,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	if err != nil {
 		return errors.New(fmt.Sprintf("Problem with sql statement: %s\n%s", qstr, err))
 	}
+	defer st.Close()
 	commit := 0
 	_, err = db.Exec("BEGIN")
 	if err != nil {
@@ -135,7 +136,6 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			db.Exec("COMMIT")
 		}
 	}
-	st.Close()
 	return nil
 }
 
