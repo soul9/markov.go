@@ -68,6 +68,18 @@ func (m *Markov) Chainmark(s string, l int, idxno int) (string, error) {
 	return Chainmark(m.db, m.dbname, s, l, idxno)
 }
 
+func prepareTx(db *sql.DB, qstr string) (*sql.Tx, *sql.Stmt, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, nil, err
+	}
+	st, err := tx.Prepare(qstr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Problem with sql statement: %s: %s", qstr, err)
+	}
+	return tx, st, nil
+}
+
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
 	w := make([]interface{}, Maxindex+1)
 	qstr := fmt.Sprintf("INSERT INTO '%s' (idx1", dbname)
@@ -84,15 +96,17 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 		w[i] = " "
 	}
 	commit := 0
-	defer db.Exec("COMMIT")
-	st, err := db.Prepare(qstr)
+	tx, st, err := prepareTx(db, qstr)
 	if err != nil {
-		return fmt.Errorf("Problem with sql statement: %s\n%s", qstr, err)
+		return err
 	}
-	defer st.Close()
+	defer tx.Commit()
 	for line, err := toadd.ReadString('\n'); err != io.EOF && err == nil; line, err = toadd.ReadString('\n') {
 		if commit%commitlen == 0 {
-			_, err = db.Exec("BEGIN")
+			tx, st, err = prepareTx(db, qstr)
+			if err != nil {
+				return err
+			}
 		}
 		commit++
 		for _, w[len(w)-1] = range strings.Split(line, " ") {
@@ -102,7 +116,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
 			_, err = st.Exec(w...)
 			if err != nil {
-				return fmt.Errorf("Couldn't execute sql statement: %s\n(error was: %s", qstr, err)
+				return fmt.Errorf("Couldn't execute sql statement: %s: %s", qstr, err)
 			}
 			for i := 0; i < len(w)-1; i++ {
 				w[i] = w[i+1]
@@ -117,7 +131,10 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			}
 		}
 		if commit%commitlen == 0 {
-			db.Exec("COMMIT")
+			err = tx.Commit()
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -197,7 +214,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		}
 		res, err := st.Query(tmps...)
 		if err != nil {
-			return tidyret(retab), fmt.Errorf("exec statement: SELECT count(word) %s\n%s", qstr, err)
+			return tidyret(retab), fmt.Errorf("exec statement: SELECT count(word) %s: %s", qstr, err)
 		}
 		var cnt int
 		if res.Next() {
