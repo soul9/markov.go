@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const MarkSqlType = "(word TEXT, idx1 TEXT, idx2 TEXT, idx3 TEXT, idx4 TEXT, idx5 TEXT, idx6 TEXT, idx7 TEXT, idx8 TEXT, idx9 TEXT, idx10 TEXT)"
+const MarkSQLType = "(word TEXT, idx1 TEXT, idx2 TEXT, idx3 TEXT, idx4 TEXT, idx5 TEXT, idx6 TEXT, idx7 TEXT, idx8 TEXT, idx9 TEXT, idx10 TEXT)"
 
 //because of sql i need to do a const dammit
 const (
@@ -35,7 +35,7 @@ func NewMarkov(dbfile, dbname string) (*Markov, error) {
 	e := m.Open()
 	defer m.Close()
 	if e == nil {
-		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' %s;", m.dbname, MarkSqlType))
+		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' %s;", m.dbname, MarkSQLType))
 	}
 	return m, e
 }
@@ -73,11 +73,11 @@ func (m *Markov) PopulateFromFile(fname string, smart bool) error {
 	return e
 }
 
-func (m *Markov) Chainmark(s string, l int, idxno int) (error, string) {
+func (m *Markov) Chainmark(s string, l int, idxno int) (string, error) {
 	m.Open()
 	defer m.Close()
-	e, s := Chainmark(m.db, m.dbname, s, l, idxno)
-	return e, s
+	s, e := Chainmark(m.db, m.dbname, s, l, idxno)
+	return s, e
 }
 
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
@@ -97,7 +97,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	}
 	st, err := db.Prepare(qstr)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Problem with sql statement: %s\n%s", qstr, err))
+		return fmt.Errorf("Problem with sql statement: %s\n%s", qstr, err)
 	}
 	defer st.Close()
 	commit := 0
@@ -118,7 +118,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
 			_, err = st.Exec(w...)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Couldn't execute sql statement: %s\n(error was: %s", qstr, err))
+				return fmt.Errorf("Couldn't execute sql statement: %s\n(error was: %s", qstr, err)
 			}
 			for i := 0; i < len(w)-1; i++ {
 				w[i] = w[i+1]
@@ -156,22 +156,22 @@ func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error
 	return err
 }
 
-func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, string) {
+func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, error) {
 	tidyret := func(s []string) string {
 		return strings.TrimSpace(strings.Join(s, " "))
 	}
 	if idxno > Maxindex {
-		return errors.New("Given index count is larger than the maximum allowable index"), ""
+		return "", errors.New("Given index count is larger than the maximum allowable index")
 	}
 	if l > MaxWords {
-		return errors.New("Too many words requested"), ""
+		return "", errors.New("Too many words requested")
 	}
 	rand.Seed(time.Now().UnixNano())
 	splitab := strings.Split(strings.TrimSpace(strings.ToLower(s)), " ")
 	retab := make([]string, l+len(splitab))
 	copy(retab, splitab)
 	w := make([]string, idxno)
-	for i, _ := range w {
+	for i := range w {
 		w[i] = " "
 	}
 	if len(splitab) < idxno {
@@ -209,27 +209,27 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (error, st
 		}
 		st, err := db.Prepare(fmt.Sprintf("SELECT count(word) %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT count(word) %s: %s", qstr, err)), tidyret(retab)
+			return tidyret(retab), fmt.Errorf("Couldn't prepare statement: SELECT count(word) %s: %s", qstr, err)
 		}
 		res, err := st.Query(tmps...)
 		if err != nil {
-			return errors.New(fmt.Sprintf("exec statement: SELECT count(word) %s\n%s", qstr, err)), tidyret(retab)
+			return tidyret(retab), fmt.Errorf("exec statement: SELECT count(word) %s\n%s", qstr, err)
 		}
 		var cnt int
 		if res.Next() {
 			res.Scan(&cnt)
 		}
 		if cnt == 0 {
-			return errors.New(fmt.Sprintf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)), tidyret(retab)
+			return tidyret(retab), fmt.Errorf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)
 		}
 		st.Close()
 		st, err = db.Prepare(fmt.Sprintf("SELECT word %s", qstr))
 		if err != nil {
-			return errors.New(fmt.Sprintf("Couldn't prepare statement: SELECT word %s: %s", qstr, err)), tidyret(retab)
+			return tidyret(retab), fmt.Errorf("Couldn't prepare statement: SELECT word %s: %s", qstr, err)
 		}
 		res, err = st.Query(tmps...)
 		if err != nil {
-			return errors.New(fmt.Sprintf("exec statement: SELECT word %s: %s", qstr, err)), tidyret(retab)
+			return tidyret(retab), fmt.Errorf("exec statement: SELECT word %s: %s", qstr, err)
 		}
 		rnd := rand.Intn(cnt)
 		var c string

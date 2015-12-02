@@ -35,7 +35,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	err, str := m.Chainmark(*startstring, *retlen, *idxlen)
+	str, err := m.Chainmark(*startstring, *retlen, *idxlen)
 	if err != nil {
 		fmt.Printf("Error in chainmark: %s\n", err)
 	}
