@@ -75,6 +75,8 @@ func prepareTx(db *sql.DB, qstr string) (*sql.Tx, *sql.Stmt, error) {
 	}
 	st, err := tx.Prepare(qstr)
 	if err != nil {
+		st.Close()
+		tx.Commit()
 		return nil, nil, fmt.Errorf("Problem with sql statement: %s: %s", qstr, err)
 	}
 	return tx, st, nil
@@ -96,10 +98,9 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 		w[i] = " "
 	}
 	commit := 0
-	tx, st, err := prepareTx(db, qstr)
-	if err != nil {
-		return err
-	}
+	var tx *sql.Tx
+	var st *sql.Stmt
+	var err error
 	for line, err := toadd.ReadString('\n'); err != io.EOF && err == nil; line, err = toadd.ReadString('\n') {
 		if commit%commitlen == 0 {
 			tx, st, err = prepareTx(db, qstr)
@@ -115,6 +116,7 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
 			_, err = st.Exec(w...)
 			if err != nil {
+				st.Close()
 				e := tx.Commit()
 				if e != nil {
 					err = fmt.Errorf("%s, commit: %s", err, e)
@@ -134,12 +136,14 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			}
 		}
 		if commit%commitlen == 0 {
+			st.Close()
 			err = tx.Commit()
 			if err != nil {
 				return err
 			}
 		}
 	}
+	st.Close()
 	e := tx.Commit()
 	if e != nil {
 		if err != nil {
@@ -228,6 +232,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		}
 		res, err := st.Query(tmps...)
 		if err != nil {
+			st.Close()
 			return tidyret(retab), fmt.Errorf("exec statement: SELECT count(word) %s: %s", qstr, err)
 		}
 		var cnt int
@@ -235,8 +240,11 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 			res.Scan(&cnt)
 		}
 		if cnt == 0 {
+			res.Close()
+			st.Close()
 			return tidyret(retab), fmt.Errorf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)
 		}
+		res.Close()
 		st.Close()
 		st, err = db.Prepare(fmt.Sprintf("SELECT word %s", qstr))
 		if err != nil {
@@ -244,6 +252,8 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		}
 		res, err = st.Query(tmps...)
 		if err != nil {
+			res.Close()
+			st.Close()
 			return tidyret(retab), fmt.Errorf("exec statement: SELECT word %s: %s", qstr, err)
 		}
 		rnd := rand.Intn(cnt)
@@ -251,6 +261,8 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		res.Next()
 		for i := 0; i < rnd-1; i++ {
 			if !res.Next() {
+				res.Close()
+				st.Close()
 				return tidyret(retab), res.Err()
 			}
 		}
@@ -260,6 +272,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		res.Scan(&c)
 		retab[i] = c
 		w[len(w)-1] = retab[i]
+		res.Close()
 		st.Close()
 	}
 	return tidyret(retab), nil
