@@ -28,6 +28,12 @@ func main() {
 		fmt.Println("Can't open database file:", err)
 		os.Exit(1)
 	}
+	err = m.Open()
+	if err != nil {
+		fmt.Println("Open:", err)
+		os.Exit(1)
+	}
+	defer m.Close()
 	if *pop {
 		err = m.PopulateFromFile(*fname, *smart)
 		if err != nil {

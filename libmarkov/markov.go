@@ -53,31 +53,19 @@ func (m *Markov) Close() error {
 }
 
 func (m *Markov) Populate(toadd *bufio.Reader, smart bool) error {
-	m.Open()
-	defer m.Close()
-	e := Populate(m.db, m.dbname, toadd, smart)
-	return e
+	return Populate(m.db, m.dbname, toadd, smart)
 }
 
 func (m *Markov) AddString(toadd string, smart bool) error {
-	m.Open()
-	defer m.Close()
-	e := AddString(m.db, m.dbname, toadd, smart)
-	return e
+	return AddString(m.db, m.dbname, toadd, smart)
 }
 
 func (m *Markov) PopulateFromFile(fname string, smart bool) error {
-	m.Open()
-	defer m.Close()
-	e := PopulateFromFile(m.db, m.dbname, fname, smart)
-	return e
+	return PopulateFromFile(m.db, m.dbname, fname, smart)
 }
 
 func (m *Markov) Chainmark(s string, l int, idxno int) (string, error) {
-	m.Open()
-	defer m.Close()
-	s, e := Chainmark(m.db, m.dbname, s, l, idxno)
-	return s, e
+	return Chainmark(m.db, m.dbname, s, l, idxno)
 }
 
 func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
