@@ -82,7 +82,6 @@ func TestAddString(t *testing.T) {
 	if e != nil {
 		t.Fatal("open:", e)
 	}
-	defer f.Close()
 	r := bufio.NewReader(f)
 	for line, e := r.ReadString('\n'); e != io.EOF && e == nil; line, e = r.ReadString('\n') {
 		e = m.AddString(line, true)
@@ -90,7 +89,26 @@ func TestAddString(t *testing.T) {
 			t.Error("AddString:", e)
 		}
 	}
-	s, e := m.Chainmark("lorem", 10, 5)
+	f.Close()
+	s, e := m.Chainmark("notexist", 10, 5)
+	if e == nil {
+		t.Error("Chainmark should have error:", e)
+	} else if s != "notexist" {
+		t.Errorf("Chainmark result should be empty. result: %s, error: %s", s, e)
+	}
+	f, e = os.Open("testdata/lipsum.txt")
+	if e != nil {
+		t.Fatal("open:", e)
+	}
+	defer f.Close()
+	r = bufio.NewReader(f)
+	for line, e := r.ReadString('\n'); e != io.EOF && e == nil; line, e = r.ReadString('\n') {
+		e = m.AddString(line, true)
+		if e != nil {
+			t.Error("AddString:", e)
+		}
+	}
+	s, e = m.Chainmark("lorem", 10, 5)
 	if (e != nil) && (s == "") {
 		t.Error("Chainmark:", e)
 	} else if e != nil {
