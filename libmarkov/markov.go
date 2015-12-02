@@ -236,7 +236,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		res.Next()
 		for i := 0; i < rnd-1; i++ {
 			if !res.Next() {
-				return res.Err(), tidyret(retab)
+				return tidyret(retab), res.Err()
 			}
 		}
 		for i := 0; i < idxno-1; i++ {
@@ -247,5 +247,5 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		w[len(w)-1] = retab[i]
 		st.Close()
 	}
-	return nil, tidyret(retab)
+	return tidyret(retab), nil
 }
