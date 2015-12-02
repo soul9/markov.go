@@ -83,17 +83,13 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	for i := 0; i < len(w); i++ {
 		w[i] = " "
 	}
+	commit := 0
+	defer db.Exec("COMMIT")
 	st, err := db.Prepare(qstr)
 	if err != nil {
 		return fmt.Errorf("Problem with sql statement: %s\n%s", qstr, err)
 	}
 	defer st.Close()
-	commit := 0
-	_, err = db.Exec("BEGIN")
-	if err != nil {
-		return err
-	}
-	defer db.Exec("COMMIT")
 	for line, err := toadd.ReadString('\n'); err != io.EOF && err == nil; line, err = toadd.ReadString('\n') {
 		if commit%commitlen == 0 {
 			_, err = db.Exec("BEGIN")
