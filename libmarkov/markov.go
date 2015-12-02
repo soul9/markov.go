@@ -100,7 +100,6 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	if err != nil {
 		return err
 	}
-	defer tx.Commit()
 	for line, err := toadd.ReadString('\n'); err != io.EOF && err == nil; line, err = toadd.ReadString('\n') {
 		if commit%commitlen == 0 {
 			tx, st, err = prepareTx(db, qstr)
@@ -116,6 +115,10 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
 			_, err = st.Exec(w...)
 			if err != nil {
+				e := tx.Commit()
+				if e != nil {
+					err = fmt.Errorf("%s, commit: %s", err, e)
+				}
 				return fmt.Errorf("Couldn't execute sql statement: %s: %s", qstr, err)
 			}
 			for i := 0; i < len(w)-1; i++ {
@@ -136,6 +139,17 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 				return err
 			}
 		}
+	}
+	e := tx.Commit()
+	if e != nil {
+		if err != nil {
+			err = fmt.Errorf("%s, commit: %s", err, e)
+		} else {
+			err = e
+		}
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
