@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const MarkSQLType = "(word TEXT, idx1 TEXT, idx2 TEXT, idx3 TEXT, idx4 TEXT, idx5 TEXT, idx6 TEXT, idx7 TEXT, idx8 TEXT, idx9 TEXT, idx10 TEXT)"
-
 //because of sql i need to do a const dammit
 const (
 	Maxindex  = 10
@@ -23,19 +21,56 @@ const (
 )
 
 type Markov struct {
-	db     *sql.DB
-	dbname string
-	dbfile string
+	db        *sql.DB
+	tablename string
+	dbfile    string
 }
 
-func NewMarkov(dbfile, dbname string) (*Markov, error) {
+func MarkSQLType() string {
+	s := "(word TEXT,"
+	for i := 1; i < Maxindex; i++ {
+		s = fmt.Sprintf("%s idx%d,", s, i)
+	}
+	s = fmt.Sprintf("%s idx%d)", s, Maxindex)
+	return s
+}
+
+type TableName string
+
+func MarkSqlIndex() []func(TableName) string {
+	r := make([]func(TableName) string, 0)
+	for i := 1; i <= Maxindex; i++ {
+		s := "("
+		s1 := fmt.Sprintf("CREATE INDEX IF NOT EXISTS index%d ON", i)
+		for j := i; j < Maxindex; j++ {
+			s = fmt.Sprintf("%sidx%d, ", s, j)
+		}
+		s = fmt.Sprintf("%sidx%d)", s, Maxindex)
+		f := func(t TableName) string {
+			return fmt.Sprintf("%s '%s' %s;", s1, t, s)
+		}
+		r = append(r, f)
+	}
+	return r
+}
+
+func NewMarkov(dbfile, tablename string) (*Markov, error) {
 	m := &Markov{}
-	m.dbname = dbname
+	m.tablename = tablename
 	m.dbfile = dbfile
 	e := m.Open()
 	defer m.Close()
 	if e == nil {
-		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' %s;", m.dbname, MarkSQLType))
+		_, e = m.db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' %s;", m.tablename, MarkSQLType()))
+		if e != nil {
+			return m, e
+		}
+		for _, f := range MarkSqlIndex() {
+			_, e = m.db.Exec(f(TableName(tablename)))
+			if e != nil {
+				return m, e
+			}
+		}
 	}
 	return m, e
 }
@@ -53,19 +88,19 @@ func (m *Markov) Close() error {
 }
 
 func (m *Markov) Populate(toadd *bufio.Reader, smart bool) error {
-	return Populate(m.db, m.dbname, toadd, smart)
+	return Populate(m.db, m.tablename, toadd, smart)
 }
 
 func (m *Markov) AddString(toadd string, smart bool) error {
-	return AddString(m.db, m.dbname, toadd, smart)
+	return AddString(m.db, m.tablename, toadd, smart)
 }
 
 func (m *Markov) PopulateFromFile(fname string, smart bool) error {
-	return PopulateFromFile(m.db, m.dbname, fname, smart)
+	return PopulateFromFile(m.db, m.tablename, fname, smart)
 }
 
 func (m *Markov) Chainmark(s string, l int, idxno int) (string, error) {
-	return Chainmark(m.db, m.dbname, s, l, idxno)
+	return Chainmark(m.db, m.tablename, s, l, idxno)
 }
 
 func prepareTx(db *sql.DB, qstr string) (*sql.Tx, *sql.Stmt, error) {
@@ -82,9 +117,18 @@ func prepareTx(db *sql.DB, qstr string) (*sql.Tx, *sql.Stmt, error) {
 	return tx, st, nil
 }
 
-func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error {
+func Populate(db *sql.DB, tablename string, toadd *bufio.Reader, smart bool) error {
+	rs := []rune{'.', '!', '?'}
+	trim := func(r rune) bool {
+		for i := range rs {
+			if r == rs[i] {
+				return true
+			}
+		}
+		return false
+	}
 	w := make([]interface{}, Maxindex+1)
-	qstr := fmt.Sprintf("INSERT INTO '%s' (idx1", dbname)
+	qstr := fmt.Sprintf("INSERT INTO '%s' (idx1", tablename)
 	// idx2,idx3,idx4,idx5,idx6,idx7,idx8,idx9,idx10, word) values(?,?,?,?,?,?,?,?,?,?,?);"
 	for i := 2; i <= Maxindex; i++ {
 		qstr = fmt.Sprintf("%s, idx%d", qstr, i)
@@ -109,11 +153,11 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 			}
 		}
 		commit++
-		for _, w[len(w)-1] = range strings.Split(line, " ") {
-			if w[len(w)-1] == "" || w[len(w)-1] == " " {
+		for _, ww := range strings.Split(line, " ") {
+			if ww == "" {
 				continue
 			}
-			w[len(w)-1] = strings.ToLower(strings.TrimSpace(w[len(w)-1].(string)))
+			w[len(w)-1] = strings.TrimFunc(strings.ToLower(strings.TrimSpace(ww)), trim)
 			_, err = st.Exec(w...)
 			if err != nil {
 				st.Close()
@@ -127,8 +171,9 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 				w[i] = w[i+1]
 			}
 			if smart {
+				sw := ww[len(ww)-1:]
 				//Makes the algorithm a little bit "smarter". This makes it "see" phrases
-				if len(w[len(w)-1].(string)) != 0 && (w[len(w)-1].(string)[:1] == "." || w[len(w)-1].(string)[:1] == "!" || w[len(w)-1].(string)[:1] == "?") {
+				if sw == "." || sw == "!" || sw == "?" {
 					for i := 0; i < Maxindex; i++ {
 						w[i] = " "
 					}
@@ -158,24 +203,24 @@ func Populate(db *sql.DB, dbname string, toadd *bufio.Reader, smart bool) error 
 	return nil
 }
 
-func AddString(db *sql.DB, dbname string, toadd string, smart bool) error {
+func AddString(db *sql.DB, tablename string, toadd string, smart bool) error {
 	r := bufio.NewReader(strings.NewReader(toadd))
-	err := Populate(db, dbname, r, smart)
+	err := Populate(db, tablename, r, smart)
 	return err
 }
 
-func PopulateFromFile(db *sql.DB, dbname string, fname string, smart bool) error {
+func PopulateFromFile(db *sql.DB, tablename string, fname string, smart bool) error {
 	f, err := os.Open(fname)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	r := bufio.NewReader(f)
-	err = Populate(db, dbname, r, smart)
+	err = Populate(db, tablename, r, smart)
 	return err
 }
 
-func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, error) {
+func Chainmark(db *sql.DB, tablename string, s string, l int, idxno int) (string, error) {
 	tidyret := func(s []string) string {
 		return strings.TrimSpace(strings.Join(s, " "))
 	}
@@ -203,7 +248,7 @@ func Chainmark(db *sql.DB, dbname string, s string, l int, idxno int) (string, e
 		copy(retab, splitab)
 	}
 	for i := len(splitab); i < l+len(splitab); i++ {
-		qstr := fmt.Sprintf("from '%s' WHERE", dbname)
+		qstr := fmt.Sprintf("from '%s' WHERE", tablename)
 		empty := true
 		tmpt := make(map[int]string)
 		if w[0] != " " {
