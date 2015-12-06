@@ -296,7 +296,7 @@ func Chainmark(db *sql.DB, tablename string, s string, l int, idxno int) (string
 		if cnt == 0 {
 			res.Close()
 			st.Close()
-			switch tidyret(retab[len(splitab)-1:]) {
+			switch tidyret(retab[len(splitab):]) {
 			case "":
 				return tidyret(retab), ErrNoWords
 			default:
