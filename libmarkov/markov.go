@@ -53,7 +53,7 @@ func MarkSqlIndex() []func(TableName) string {
 		}
 		s = fmt.Sprintf("%sidx%d)", s, Maxindex)
 		f := func(t TableName) string {
-			return fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s_%s ON '%s' %s;", t, s1, t, s)
+			return fmt.Sprintf("CREATE INDEX IF NOT EXISTS '%s_%s' ON '%s' %s;", t, s1, t, s)
 		}
 		r = append(r, f)
 	}
