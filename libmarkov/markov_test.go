@@ -96,6 +96,9 @@ func TestAddString(t *testing.T) {
 	} else if s != "notexist" {
 		t.Errorf("Chainmark result should be empty. result: %s, error: %s", s, e)
 	}
+	if e != ErrNoWords {
+		t.Errorf("Error should be ErrNoWords, it is instead: %s", e)
+	}
 	f, e = os.Open("testdata/lipsum.txt")
 	if e != nil {
 		t.Fatal("open:", e)

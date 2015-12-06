@@ -20,6 +20,12 @@ const (
 	commitlen = 5000
 )
 
+var (
+	ErrNotEnoughWords = errors.New("Couldn't chain enough words")
+	ErrNoWords        = errors.New("No words found")
+	smartsep          = []rune{'.', '!', '?'}
+)
+
 type Markov struct {
 	db        *sql.DB
 	tablename string
@@ -117,16 +123,16 @@ func prepareTx(db *sql.DB, qstr string) (*sql.Tx, *sql.Stmt, error) {
 	return tx, st, nil
 }
 
-func Populate(db *sql.DB, tablename string, toadd *bufio.Reader, smart bool) error {
-	rs := []rune{'.', '!', '?'}
-	trim := func(r rune) bool {
-		for i := range rs {
-			if r == rs[i] {
-				return true
-			}
+func trimsmart(r rune) bool {
+	for _, s := range smartsep {
+		if r == s {
+			return true
 		}
-		return false
 	}
+	return false
+}
+
+func Populate(db *sql.DB, tablename string, toadd *bufio.Reader, smart bool) error {
 	w := make([]interface{}, Maxindex+1)
 	qstr := fmt.Sprintf("INSERT INTO '%s' (idx1", tablename)
 	// idx2,idx3,idx4,idx5,idx6,idx7,idx8,idx9,idx10, word) values(?,?,?,?,?,?,?,?,?,?,?);"
@@ -157,7 +163,7 @@ func Populate(db *sql.DB, tablename string, toadd *bufio.Reader, smart bool) err
 			if ww == "" {
 				continue
 			}
-			w[len(w)-1] = strings.TrimFunc(strings.ToLower(strings.TrimSpace(ww)), trim)
+			w[len(w)-1] = strings.TrimFunc(strings.ToLower(strings.TrimSpace(ww)), trimsmart)
 			_, err = st.Exec(w...)
 			if err != nil {
 				st.Close()
@@ -232,6 +238,9 @@ func Chainmark(db *sql.DB, tablename string, s string, l int, idxno int) (string
 	}
 	rand.Seed(time.Now().UnixNano())
 	splitab := strings.Split(strings.TrimSpace(strings.ToLower(s)), " ")
+	for i := range splitab {
+		splitab[i] = strings.TrimFunc(splitab[i], trimsmart)
+	}
 	retab := make([]string, l+len(splitab))
 	copy(retab, splitab)
 	w := make([]string, idxno)
@@ -287,7 +296,12 @@ func Chainmark(db *sql.DB, tablename string, s string, l int, idxno int) (string
 		if cnt == 0 {
 			res.Close()
 			st.Close()
-			return tidyret(retab), fmt.Errorf("Couldn't continue with this word combination: %v, %v, sql: select * %s", w, tmps, qstr)
+			switch retab[len(splitab)] {
+			case "":
+				return tidyret(retab), ErrNoWords
+			default:
+				return tidyret(retab), ErrNotEnoughWords
+			}
 		}
 		res.Close()
 		st.Close()
